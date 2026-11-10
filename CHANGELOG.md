@@ -552,6 +552,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Intrinsic cell gradients on curves in 3D now lie along each cell's own
   direction. Before, they crashed on open curves and were projected onto the
   wrong tangent on closed curves.
+- `OceanMSE` and `WeightedOceanMSE` in
+  `physicsnemo.metrics.climate.healpix_loss` normalize by the land-sea mask
+  weight of the current batch. They reused the weight of the first batch, so
+  a batch of a different size (such as a smaller last one) was mis-scaled.
 - Curvature of a curve whose two edges at a vertex both start or both end
   there, as `get_boundary_mesh` produces, is now correct. Before, the angle at
   such a vertex was wrong, so a right-angled corner had zero curvature.

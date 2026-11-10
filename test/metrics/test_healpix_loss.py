@@ -437,3 +437,33 @@ def test_WeightedOceanMSE(
         rtol=rtol,
         atol=atol,
     )
+
+
+@pytest.mark.parametrize("weighted", [False, True])
+def test_ocean_mse_normalization_follows_batch_size(device, weighted):
+    """The ocean-weighted mean must not depend on the batch size of earlier calls.
+
+    A unit squared error everywhere gives a mean of exactly one, whatever the
+    land-sea mask and the number of samples. The loss is called with a larger
+    batch first, then with smaller ones.
+    """
+    num_faces, num_channels, size = 12, 3, 8
+    generator = torch.Generator().manual_seed(0)
+    mask = (torch.rand(1, num_faces, 1, 1, size, size, generator=generator) > 0.4).to(
+        device=device, dtype=torch.float32
+    )
+    if weighted:
+        loss_func = WeightedOceanMSE("unused")
+        loss_func.loss_weights = torch.ones(num_channels, device=device)
+    else:
+        loss_func = OceanMSE("unused")
+    loss_func.lsm_tensor = mask
+
+    for batch_size in (4, 2, 3):
+        shape = (batch_size, num_faces, 1, num_channels, size, size)
+        target = torch.ones(shape, device=device)
+        prediction = torch.zeros(shape, device=device)
+        mean_loss = loss_func(prediction, target, average_channels=True)
+        channel_loss = loss_func(prediction, target, average_channels=False)
+        torch.testing.assert_close(mean_loss, torch.ones_like(mean_loss))
+        torch.testing.assert_close(channel_loss, torch.ones_like(channel_loss))
