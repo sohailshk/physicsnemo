@@ -277,12 +277,20 @@ if PV_AVAILABLE:
         wave_numbers = np.arange(0, nx + 1) * 2 * np.pi
         tke_spectrum = np.zeros(wave_numbers.shape)
 
+        # Integer wavenumber of each FFT index (0, 1, ..., -2, -1), so that the
+        # negative frequencies are binned by their magnitude
+        ikx = np.fft.fftfreq(nx, 1 / nx)
+        iky = np.fft.fftfreq(ny, 1 / ny)
+        ikz = np.fft.fftfreq(nz, 1 / nz)
+
         # Filter out under-sampled regions
         # https://scicomp.stackexchange.com/questions/21360/computing-turbulent-energy-spectrum-from-isotropic-turbulence-flow-field-in-a-bo
         for rkx in range(nx):
             for rky in range(ny):
                 for rkz in range(nz):
-                    rk = int(np.round(np.sqrt(rkx * rkx + rky * rky + rkz * rkz)))
+                    rk = int(
+                        np.round(np.sqrt(ikx[rkx] ** 2 + iky[rky] ** 2 + ikz[rkz] ** 2))
+                    )
                     if rk < len(tke_spectrum):
                         tke_spectrum[rk] += E[rkx, rky, rkz]
 

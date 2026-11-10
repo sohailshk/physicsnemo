@@ -129,3 +129,29 @@ def test_compute_tke_spectrum_length():
     # Wavenumbers scale inversely with the domain length
     mk_unit, _, _, _ = compute_tke_spectrum(field, length=1.0)
     np.testing.assert_allclose(mk_unit, mk_default * 2 * np.pi)
+
+
+@pytest.mark.parametrize("axis, k", [(0, 1), (1, 3), (2, 5)])
+def test_compute_tke_spectrum_single_mode(axis, k):
+    # u = cos(k x) has energy 0.5 * mean(u^2) = 0.25, split between the +k and
+    # -k Fourier modes; both belong in the shell of wavenumber k
+    n = 16
+    x = np.arange(n) * 2 * np.pi / n
+    grid = np.meshgrid(x, x, x, indexing="ij")
+    field = np.zeros((3, n, n, n))
+    field[0] = np.cos(k * grid[axis])
+
+    _, _, _, tke = compute_tke_spectrum(field)
+    expected = np.zeros(n + 1)
+    expected[k] = 0.25
+    np.testing.assert_allclose(tke, expected, atol=1e-12)
+
+
+@pytest.mark.parametrize("shape", [(12, 12, 12), (12, 9, 7)])
+def test_compute_tke_spectrum_conserves_energy(shape):
+    # Every Fourier mode of these grids lies within the binned shells, so the
+    # binned spectrum sums to the total kinetic energy (Parseval)
+    field = np.random.default_rng(0).standard_normal((3, *shape))
+
+    _, _, _, tke = compute_tke_spectrum(field)
+    np.testing.assert_allclose(tke.sum(), 0.5 * np.mean(np.sum(field**2, axis=0)))
