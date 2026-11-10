@@ -538,7 +538,9 @@ def test_wasserstein(device, mean, variance, rtol: float = 1e-3, atol: float = 1
         (10_000, 1), device=device, dtype=torch.float32
     )
 
-    binsx, cdfx = hist.cdf(x, bins=10)
+    # Both samples are binned over their joint range, as wasserstein_from_samples does
+    binsx, _ = hist.cdf(x, y, bins=10)
+    _, cdfx = hist.cdf(x, bins=binsx)
     _, cdfy = hist.cdf(y, bins=binsx)
     w_cdf = w.wasserstein_from_cdf(binsx, cdfx, cdfy)
     w_samples = w.wasserstein_from_samples(x, y)
@@ -592,6 +594,31 @@ def test_wasserstein(device, mean, variance, rtol: float = 1e-3, atol: float = 1
     )
     w_mnorm = w.wasserstein_from_normal(mu_x, sig_x, mu_y, sig_y)
     assert not torch.any(torch.isnan(w_mnorm))
+
+
+@pytest.mark.parametrize("shift", [-5.0, 0.3, 5.0])
+def test_wasserstein_from_samples_distinct_ranges(device, shift):
+    """Samples that extend past each other are compared on one set of bins.
+
+    The 1-Wasserstein distance between the empirical distributions is computed
+    exactly from the sorted samples; the histogram estimate must be close
+    (within a bin width), whichever sample extends further.
+    """
+    torch.manual_seed(0)
+    bins = 50
+    x = torch.randn((2000, 1), device=device)
+    y = torch.randn((2000, 1), device=device) + shift
+
+    # exact W1 between the two empirical distributions
+    exact = (x[:, 0].sort().values - y[:, 0].sort().values).abs().mean()
+    bin_width = (
+        torch.maximum(x.max(), y.max()) - torch.minimum(x.min(), y.min())
+    ) / bins
+
+    w_xy = w.wasserstein_from_samples(x, y, bins=bins)
+    w_yx = w.wasserstein_from_samples(y, x, bins=bins)
+    assert torch.allclose(w_xy, w_yx)
+    assert abs(w_xy.item() - exact.item()) < bin_width.item()
 
 
 def test_means_var(device, rtol: float = 1e-3, atol: float = 1e-3):

@@ -44,7 +44,13 @@ def wasserstein_from_samples(x: Tensor, y: Tensor, bins: int = 10):
     Tensor
         The 1-Wasserstein distance between the samples x and y.
     """
-    bin_edges, cdf_x = histogram.cdf(x, bins=bins)
+    # Bin both samples over their joint range: ``histogram.cdf`` widens a passed
+    # set of bin edges to cover the data, which would give ``y`` edges other
+    # than the ``bin_edges`` used below whenever ``y`` extends beyond ``x``.
+    low = torch.minimum(x.amin(0), y.amin(0))
+    high = torch.maximum(x.amax(0), y.amax(0))
+    bin_edges = histogram.linspace(low, high, bins)
+    _, cdf_x = histogram.cdf(x, bins=bin_edges)
     _, cdf_y = histogram.cdf(y, bins=bin_edges)
     return wasserstein_from_cdf(bin_edges, cdf_x, cdf_y)
 

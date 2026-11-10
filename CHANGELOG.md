@@ -667,6 +667,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   force integration.
 - `ClusterTree.find_dual_interaction_pairs` returned an empty plan if any point
   had a NaN coordinate, and failed on plans with more than 2^31 interactions.
+- `physicsnemo.metrics.general.wasserstein.wasserstein_from_samples` bins both
+  samples over their joint range. When the second sample extended beyond the
+  first, its CDF was computed on different bin edges than the ones the distance
+  was integrated over, so the result was wrong and changed when the samples
+  were swapped.
 - `ClusterTree.from_points` no longer keeps the autograd graph of its inputs.
 - With `expand_far_targets=True` and `leaf_size > 1`,
   `ClusterTree.find_dual_interaction_pairs` still approximated some targets by
