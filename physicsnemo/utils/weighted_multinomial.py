@@ -38,7 +38,8 @@ def _devices_match(
     second = torch.device(second)
     if first.type != second.type:
         return False
-    if first.type == "cpu":
+    if first.type in ("cpu", "mps"):
+        # There is one CPU device and one MPS device, whatever the index.
         return True
     if first.type == "cuda" and (first.index is None or second.index is None):
         current = torch.cuda.current_device()

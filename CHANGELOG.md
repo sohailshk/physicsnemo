@@ -682,6 +682,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   such as the edges of a cube.
 - `Mesh.is_manifold()` no longer raises on a tetrahedral mesh with a
   degenerate cell.
+- `weighted_multinomial` accepts `device="mps"` with weights or a generator on
+  MPS. It raised because both report their device as `mps:0`.
 - Mesh slicing reuses integer indices across connectivity, fields, and caches
   to avoid repeated CUDA synchronization for the same boolean mask.
   Point slicing skips mask processing when the output has no cells because

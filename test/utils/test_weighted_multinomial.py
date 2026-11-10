@@ -220,6 +220,32 @@ def test_accepts_equivalent_cpu_device_aliases(device):
     assert torch.unique(indices).numel() == 2
 
 
+@pytest.mark.parametrize("first, second", [("mps", "mps:0"), ("mps:0", "mps")])
+def test_indexless_mps_matches_the_only_mps_device(first, second):
+    assert sampling_module._devices_match(first, second)
+
+
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="MPS not available")
+def test_accepts_indexless_mps_device():
+    # A generator on MPS reports "mps:0"
+    generator = torch.Generator(device="mps").manual_seed(0)
+
+    indices = weighted_multinomial(4, 2, device="mps", generator=generator)
+
+    assert indices.device == torch.device("mps", 0)
+    assert torch.unique(indices).numel() == 2
+
+
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="MPS not available")
+def test_accepts_indexless_mps_device_for_weights():
+    weights = torch.ones(4, device="mps")
+
+    indices = weighted_multinomial(weights, 2, device="mps")
+
+    assert indices.device == weights.device
+    assert torch.unique(indices).numel() == 2
+
+
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_accepts_indexless_cuda_generator_on_current_device():
     device = torch.device("cuda", torch.cuda.current_device())
