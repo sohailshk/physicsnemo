@@ -467,6 +467,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checks whether its own code is being traced, because since torch 2.13
   `torch.compiler.is_compiling()` is True in every thread during a compile,
   which made data-loading threads drop caches and skip validation.
+- `physicsnemo.metrics.climate.loss.SSIM` uses a Gaussian window of standard
+  deviation 1.5, as in the reference SSIM; it was 1.5 * sqrt(2), a flatter
+  window. SSIM values, and so `MSE_SSIM` losses, change slightly.
 - GraphCast and MeshGraphNet run on graphs partitioned across GPUs again
   (`partition_size > 1`, or a `DistributedGraph` in place of the PyG graph),
   so the distributed shallow-water example works. This broke when the DGL

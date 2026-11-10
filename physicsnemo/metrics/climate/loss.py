@@ -251,7 +251,7 @@ class SSIM(torch.nn.Module):
         torch.Tensor: A tensor representing the weights for each pixel in the window or patch
         """
         x = torch.arange(0, window_size) - window_size // 2
-        gauss = torch.exp(-((x.div(2 * sigma)) ** 2))
+        gauss = torch.exp(-(x**2) / (2 * sigma**2))
         return gauss / gauss.sum()
 
     def _create_window(self, window_size: int, sigma: float = 1.5) -> torch.Tensor:

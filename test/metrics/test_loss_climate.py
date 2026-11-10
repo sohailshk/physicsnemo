@@ -16,6 +16,7 @@
 
 from dataclasses import dataclass
 
+import numpy as np
 import pytest
 import torch
 from torch.nn import functional as F
@@ -185,9 +186,25 @@ def test_SSIM(device):
     eye = torch.eye(360).to(device)
     eye = eye[None, None, ...]
 
-    loss = ssim_loss(eye, torch.roll(eye, 1, -1))  # ~0.9516
-    assert 0.95 < loss < 0.96
+    loss = ssim_loss(eye, torch.roll(eye, 1, -1))  # ~0.9618
+    assert 0.96 < loss < 0.97
 
     # test the case of being below the mse_epoch threshold
-    loss = ssim_loss(eye, torch.roll(eye, 1, -1), epoch=-1)  # ~0.9516
+    loss = ssim_loss(eye, torch.roll(eye, 1, -1), epoch=-1)
     assert loss == F.mse_loss(eye, torch.roll(eye, 1, -1))
+
+
+@pytest.mark.parametrize("window_size, sigma", [(11, 1.5), (7, 1.0), (5, 2.0)])
+def test_SSIM_gaussian_window(window_size, sigma):
+    """The window is a normalized Gaussian of standard deviation ``sigma``."""
+    offsets = np.arange(window_size) - window_size // 2
+    expected = np.exp(-(offsets**2) / (2 * sigma**2))
+    expected /= expected.sum()
+
+    window_1d = SSIM._gaussian(window_size, sigma)
+    np.testing.assert_allclose(window_1d.numpy(), expected, rtol=1e-6)
+
+    window_2d = SSIM(window_size=window_size)._create_window(window_size, sigma)
+    np.testing.assert_allclose(
+        window_2d[0, 0].numpy(), np.outer(expected, expected), rtol=1e-5
+    )
