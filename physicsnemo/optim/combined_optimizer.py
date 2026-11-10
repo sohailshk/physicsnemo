@@ -140,12 +140,29 @@ class CombinedOptimizer(Optimizer):
             self._initializing = False
 
         ### Setup step functions (optionally compiled)
-        if torch_compile_kwargs is None:
-            self.step_fns: list[Callable] = [opt.step for opt in optimizers]
-        else:
-            self.step_fns: list[Callable] = [
-                torch.compile(opt.step, **torch_compile_kwargs) for opt in optimizers
-            ]
+        self.step_fns: list[Callable] = self._make_step_fns()
+
+    def _make_step_fns(self) -> list[Callable]:
+        """Return the step function of each optimizer, compiled if requested."""
+        if self._torch_compile_kwargs is None:
+            return [opt.step for opt in self.optimizers]
+        return [
+            torch.compile(opt.step, **self._torch_compile_kwargs)
+            for opt in self.optimizers
+        ]
+
+    def __getstate__(self) -> dict[str, Any]:
+        # ``Optimizer.__getstate__`` keeps only ``defaults``, ``state`` and
+        # ``param_groups``; keep the wrapped optimizers too. The step functions
+        # (possibly compiled) are rebuilt in ``__setstate__``.
+        state = super().__getstate__()
+        state["optimizers"] = self.optimizers
+        state["_torch_compile_kwargs"] = self._torch_compile_kwargs
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        super().__setstate__(state)
+        self.step_fns = self._make_step_fns()
 
     def zero_grad(self, set_to_none: bool = True) -> None:
         r"""Clear the gradients of all optimized parameters.

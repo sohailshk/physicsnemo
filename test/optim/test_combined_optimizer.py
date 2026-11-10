@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
+import pickle
+
 import pytest
 import torch
 import torch.nn as nn
@@ -405,3 +408,62 @@ class TestIntegration:
 
         for init, new in zip(initial_lrs, new_lrs):
             assert new == pytest.approx(init * 0.1)
+
+
+def _pickle_round_trip(obj):
+    """Pickle and unpickle ``obj`` in memory."""
+    return pickle.loads(pickle.dumps(obj))  # noqa: S301 - local round trip
+
+
+class TestSerialization:
+    """Tests for pickling and copying a CombinedOptimizer."""
+
+    @pytest.mark.parametrize(
+        "copy_fn", [copy.deepcopy, _pickle_round_trip], ids=["deepcopy", "pickle"]
+    )
+    def test_copy_steps_like_original(self, model, copy_fn):
+        """Verify a copied optimizer keeps its optimizers and steps like the original."""
+        opt1 = SGD(model.layer1.parameters(), lr=0.1, momentum=0.9)
+        opt2 = Adam(model.layer2.parameters(), lr=0.01)
+        combined = CombinedOptimizer([opt1, opt2])
+        x = torch.ones(4, 10)
+
+        # Take one step first so the copy also carries optimizer state
+        combined.zero_grad()
+        model(x).sum().backward()
+        combined.step()
+        model_copy, combined_copy = copy_fn((model, combined))
+
+        assert [type(opt) for opt in combined_copy.optimizers] == [SGD, Adam]
+        # param_groups must still be the underlying optimizers' groups, so that
+        # LR schedulers attached to the copy reach them
+        groups = [g for opt in combined_copy.optimizers for g in opt.param_groups]
+        assert list(map(id, combined_copy.param_groups)) == list(map(id, groups))
+
+        for m, opt in ((model, combined), (model_copy, combined_copy)):
+            for _ in range(2):
+                opt.zero_grad()
+                m(x).sum().backward()
+                opt.step()
+
+        for p, p_copy in zip(model.parameters(), model_copy.parameters()):
+            torch.testing.assert_close(p_copy, p)
+
+    def test_pickle_rebuilds_compiled_step_fns(self, model, monkeypatch):
+        """Verify unpickling compiles the step functions again."""
+        compiled = []
+
+        def mock_compile(fn, **kwargs):
+            compiled.append(kwargs)
+            return fn
+
+        monkeypatch.setattr(torch, "compile", mock_compile)
+        combined = CombinedOptimizer(
+            [SGD(model.layer1.parameters(), lr=0.1)],
+            torch_compile_kwargs={"mode": "reduce-overhead"},
+        )
+        restored = _pickle_round_trip(combined)
+
+        assert compiled == [{"mode": "reduce-overhead"}] * 2
+        assert len(restored.step_fns) == 1
+        assert restored.step_fns[0].__self__ is restored.optimizers[0]

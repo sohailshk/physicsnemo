@@ -820,6 +820,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backward through `ShardTensor.to_local()` adopts the gradient's shard order
   along with its placements, so a sharded primal with a replicated cotangent
   no longer trips a `DTensorSpec` assertion.
+- `physicsnemo.optim.CombinedOptimizer` can be pickled, as its docstring
+  states, and deep-copied. The copy used to lose its wrapped optimizers, so
+  `step`, `zero_grad` and `state_dict` raised `AttributeError`.
 
 ### Security
 
